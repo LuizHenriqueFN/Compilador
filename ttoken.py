@@ -50,6 +50,9 @@ class TOKEN (IntEnum):
     STRVAL = 47
     MOD = 48 
     SETA = 49
+    BOOLEAN = 50
+    TRUE = 51
+    FALSE = 52
 
     @classmethod
     def msg(cls, token):
@@ -102,7 +105,10 @@ class TOKEN (IntEnum):
             46: "floatVal",
             47: "strVal",
             48: "%",
-            49: "->"
+            49: "->",
+            50: "boolean",
+            51: "true",
+            52: "false"
 
         }
         return nomes[token]
@@ -145,6 +151,8 @@ class TOKEN (IntEnum):
             'intVal': TOKEN.INTVAL,
             'floatVal': TOKEN.FLOATVAL,
             'strVal': TOKEN.STRVAL,
+            'True' : TOKEN.TRUE,
+            'False' : TOKEN.FALSE
             
         }
         if lexema in reservadas:
@@ -156,66 +164,66 @@ class TOKEN (IntEnum):
     def tabelaOperacoes(cls):
         return {
             # operações aritméticas
-            frozenset({(TOKEN.TINT, False), TOKEN.mais, (TOKEN.TINT, False)}): (TOKEN.TINT, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.menos, (TOKEN.TINT, False)}): (TOKEN.TINT, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.multiplica, (TOKEN.TINT, False)}): (TOKEN.TINT, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.divide, (TOKEN.TINT, False)}): (TOKEN.TFLOAT, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.mod, (TOKEN.TINT, False)}): (TOKEN.TINT, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.mais, (TOKEN.TFLOAT, False)}): (TOKEN.TFLOAT, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.mais, (TOKEN.TINT, False)}): (TOKEN.TFLOAT, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.multiplica, (TOKEN.TINT, False)}): (TOKEN.TFLOAT, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.divide, (TOKEN.TINT, False)}): (TOKEN.TFLOAT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.SOMA, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.SUBTRACAO, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MULTIPLICACAO, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.DIVISAO, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MOD, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.SOMA, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.SOMA, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.MULTIPLICACAO, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.DIVISAO, (TOKEN.INT, False)}): (TOKEN.FLOAT, False),
 
             # operações de concatenação
-            frozenset({(TOKEN.TSTRING, False), TOKEN.mais, (TOKEN.TSTRING, False)}): (TOKEN.TSTRING, False),
-            frozenset({(TOKEN.TSTRING, True), TOKEN.mais, (TOKEN.TSTRING, True)}): (TOKEN.TSTRING, True),
-            frozenset({(TOKEN.TINT, True), TOKEN.mais, (TOKEN.TINT, True)}): (TOKEN.TINT, True),
-            frozenset({(TOKEN.TFLOAT, True), TOKEN.mais, (TOKEN.TFLOAT, True)}): (TOKEN.TFLOAT, True),
-            frozenset({(TOKEN.TBOOLEAN, True), TOKEN.mais, (TOKEN.TBOOLEAN, True)}): (TOKEN.TBOOLEAN, True),
-            frozenset({(None, True), TOKEN.mais, (None, True)}): (None, True),
-            frozenset({(None, True), TOKEN.mais, (TOKEN.TSTRING, True)}): (None, True),
-            frozenset({(None, True), TOKEN.mais, (TOKEN.TINT, True)}): (None, True),
-            frozenset({(None, True), TOKEN.mais, (TOKEN.TFLOAT, True)}): (None, True),
-            frozenset({(None, True), TOKEN.mais, (TOKEN.TBOOLEAN, True)}): (None, True),
+            frozenset({(TOKEN.STRING, False), TOKEN.SOMA, (TOKEN.STRING, False)}): (TOKEN.STRING, False),
+            frozenset({(TOKEN.STRING, True), TOKEN.SOMA, (TOKEN.STRING, True)}): (TOKEN.STRING, True),
+            frozenset({(TOKEN.INT, True), TOKEN.SOMA, (TOKEN.INT, True)}): (TOKEN.INT, True),
+            frozenset({(TOKEN.FLOAT, True), TOKEN.SOMA, (TOKEN.FLOAT, True)}): (TOKEN.FLOAT, True),
+            frozenset({(TOKEN.BOOLEAN, True), TOKEN.SOMA, (TOKEN.BOOLEAN, True)}): (TOKEN.BOOLEAN, True),
+            frozenset({(None, True), TOKEN.SOMA, (None, True)}): (None, True),
+            frozenset({(None, True), TOKEN.SOMA, (TOKEN.STRING, True)}): (None, True),
+            frozenset({(None, True), TOKEN.SOMA, (TOKEN.INT, True)}): (None, True),
+            frozenset({(None, True), TOKEN.SOMA, (TOKEN.FLOAT, True)}): (None, True),
+            frozenset({(None, True), TOKEN.SOMA, (TOKEN.BOOLEAN, True)}): (None, True),
 
             # operações relacionais
-            frozenset({(TOKEN.TINT, False), TOKEN.igual, (TOKEN.TINT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.diferente, (TOKEN.TINT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.menor, (TOKEN.TINT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.menorIgual, (TOKEN.TINT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.maior, (TOKEN.TINT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.maiorIgual, (TOKEN.TINT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.igual, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.diferente, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.menor, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.menorIgual, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.maior, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TFLOAT, False), TOKEN.maiorIgual, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TSTRING, False), TOKEN.igual, (TOKEN.TSTRING, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TSTRING, False), TOKEN.diferente, (TOKEN.TSTRING, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.igual, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.diferente, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.menor, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.menorIgual, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TINT, False), TOKEN.maior, (TOKEN.TFLOAT, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TBOOLEAN, False), TOKEN.igual, (TOKEN.TBOOLEAN, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TBOOLEAN, False), TOKEN.diferente, (TOKEN.TBOOLEAN, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TBOOLEAN, False), TOKEN.AND, (TOKEN.TBOOLEAN, False)}): (TOKEN.TBOOLEAN, False),
-            frozenset({(TOKEN.TBOOLEAN, False), TOKEN.OR, (TOKEN.TBOOLEAN, False)}): (TOKEN.TBOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.IGUAL, (TOKEN.INT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.DIFERENTE, (TOKEN.INT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MENOR, (TOKEN.INT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MENOR_IGUAL, (TOKEN.INT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MAIOR, (TOKEN.INT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MAIOR_IGUAL, (TOKEN.INT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.IGUAL, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.DIFERENTE, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.MENOR, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.MENOR_IGUAL, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.MAIOR, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.FLOAT, False), TOKEN.MAIOR_IGUAL, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.STRING, False), TOKEN.IGUAL, (TOKEN.STRING, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.STRING, False), TOKEN.DIFERENTE, (TOKEN.STRING, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.IGUAL, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.DIFERENTE, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MENOR, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MENOR_IGUAL, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.INT, False), TOKEN.MAIOR, (TOKEN.FLOAT, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.BOOLEAN, False), TOKEN.IGUAL, (TOKEN.BOOLEAN, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.BOOLEAN, False), TOKEN.DIFERENTE, (TOKEN.BOOLEAN, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.BOOLEAN, False), TOKEN.AND, (TOKEN.BOOLEAN, False)}): (TOKEN.BOOLEAN, False),
+            frozenset({(TOKEN.BOOLEAN, False), TOKEN.OR, (TOKEN.BOOLEAN, False)}): (TOKEN.BOOLEAN, False),
 
             # operações unárias
-            frozenset({TOKEN.mais, (TOKEN.TINT, False)}): (TOKEN.TINT, False),
-            frozenset({TOKEN.menos, (TOKEN.TINT, False)}): (TOKEN.TINT, False),
-            frozenset({TOKEN.mais, (TOKEN.TFLOAT, False)}): (TOKEN.TFLOAT, False),
-            frozenset({TOKEN.menos, (TOKEN.TFLOAT, False)}): (TOKEN.TFLOAT, False),
-            frozenset({TOKEN.NOT, (TOKEN.TBOOLEAN, False)}): (TOKEN.TBOOLEAN, False),
+            frozenset({TOKEN.SOMA, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({TOKEN.SUBTRACAO, (TOKEN.INT, False)}): (TOKEN.INT, False),
+            frozenset({TOKEN.SOMA, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({TOKEN.SUBTRACAO, (TOKEN.FLOAT, False)}): (TOKEN.FLOAT, False),
+            frozenset({TOKEN.NOT, (TOKEN.BOOLEAN, False)}): (TOKEN.BOOLEAN, False),
 
             # valores hardcoded
-            frozenset([(TOKEN.TINT, False)]): (TOKEN.TINT, True),
-            frozenset([(TOKEN.TFLOAT, False)]): (TOKEN.TFLOAT, True),
-            frozenset([(TOKEN.TSTRING, False)]): (TOKEN.TSTRING, True),
-            frozenset([(TOKEN.TINT, False), (TOKEN.TFLOAT, False)]): (TOKEN.TFLOAT, True),
+            frozenset([(TOKEN.INT, False)]): (TOKEN.INT, True),
+            frozenset([(TOKEN.FLOAT, False)]): (TOKEN.FLOAT, True),
+            frozenset([(TOKEN.STRING, False)]): (TOKEN.STRING, True),
+            frozenset([(TOKEN.INT, False), (TOKEN.FLOAT, False)]): (TOKEN.FLOAT, True),
 
-            frozenset({(TOKEN.TSTRING, False), TOKEN.mais, (TOKEN.TSTRING, False)}): (TOKEN.TSTRING, False),
-            frozenset({(TOKEN.TSTRING, True), TOKEN.mais, (TOKEN.TSTRING, False)}): (TOKEN.TSTRING, True),
+            frozenset({(TOKEN.STRING, False), TOKEN.SOMA, (TOKEN.STRING, False)}): (TOKEN.STRING, False),
+            frozenset({(TOKEN.STRING, True), TOKEN.SOMA, (TOKEN.STRING, False)}): (TOKEN.STRING, True),
         } 

@@ -5,6 +5,7 @@ from semantico import Semantico
 # Verificar os tipos
 
 # TODO: implementar tabela de comparação de tipos no semantico (tipo1/tipo2)
+# TODO: restoMult continuar inserindo as operações
 # while deve ter a expressão válida 
 
 class Sintatico:
@@ -473,18 +474,18 @@ class Sintatico:
             pass
 
     # <mult> -> <uno> <restoMult>
-    def mult(self):
-        aux = self.uno()
-        aux2 = self.restoMult(aux)
-        return aux2
+    def mult(self, operacao: list):
+        self.uno(operacao)
+        self.restoMult(operacao)
+        return operacao
 
     # <restoMult> -> LAMBDA | / <uno> <restoMult> | * <uno> <restoMult> | % <uno> 
-    def restoMult(self, tipo1):
+    def restoMult(self, operacao: list):
         if self.tokenLido[0] == TOKEN.DIVISAO:
             self.consome(TOKEN.DIVISAO)
             tipo2 = self.uno()
-            # TODO: implementar tabela de comparação de tipos no semantico (tipo1/tipo2)
-            self.restoMult()
+            operacao.append(tipo2)
+            self.restoMult(operacao)
         elif self.tokenLido[0] == TOKEN.MULTIPLICACAO:
             self.consome(TOKEN.MULTIPLICACAO)
             self.uno()
@@ -497,15 +498,19 @@ class Sintatico:
             return tipo1
 
     # <uno> -> + <uno> | - <uno> | <folha>
-    def uno(self):
+    def uno(self, operacao: list):
         if self.tokenLido[0] == TOKEN.SOMA:
             self.consome(TOKEN.SOMA)
-            self.uno()
+            operacao.append((TOKEN.SOMA))
+            return self.uno(operacao)
         elif self.tokenLido[0] == TOKEN.SUBTRACAO:
             self.consome(TOKEN.SUBTRACAO)
-            self.uno()
+            operacao.append((TOKEN.SUBTRACAO))
+            return self.uno(operacao)
         else:
-            return self.folha()
+            tipo = self.folha()
+            operacao.append(tipo)
+            return tipo
             
     # <folha> -> intVal | floatVal | strVal | <call> | <lista> | ( <exp> ) 
     def folha(self):
