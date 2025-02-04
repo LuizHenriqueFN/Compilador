@@ -222,6 +222,7 @@ class TOKEN (IntEnum):
             frozenset([(TOKEN.INT, False)]): (TOKEN.INT, True),
             frozenset([(TOKEN.FLOAT, False)]): (TOKEN.FLOAT, True),
             frozenset([(TOKEN.STRING, False)]): (TOKEN.STRING, True),
+            frozenset([(TOKEN.TRUE, False)]): (TOKEN.BOOLEAN, False),
             frozenset([(TOKEN.INT, False), (TOKEN.FLOAT, False)]): (TOKEN.FLOAT, True),
 
             frozenset({(TOKEN.STRING, False), TOKEN.SOMA, (TOKEN.STRING, False)}): (TOKEN.STRING, False),

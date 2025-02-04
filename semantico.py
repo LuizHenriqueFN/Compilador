@@ -1,8 +1,9 @@
 from ttoken import TOKEN
 class Semantico:
-    def __init__(self):
+    def __init__(self, nomeAlvo):
         #len, trunc, str2Num, num2Str
         self.escopos = [{}]  # Pilha de escopos (começa com o escopo global)
+        self.alvo = open(nomeAlvo, "wt")
         self.declara("len", (TOKEN.FUNCTION, [(None, (None, True)), ("retorno", (TOKEN.INT, False))]))
         self.declara("trunc", (TOKEN.FUNCTION, [(None, (TOKEN.FLOAT, False)), ("retorno", (TOKEN.INT, False))]))
         self.declara("str2num", (TOKEN.FUNCTION, [(None, (TOKEN.STRING, False)), ("retorno", (TOKEN.FLOAT, False))]))
@@ -10,6 +11,9 @@ class Semantico:
 
         # Tabela de operações usando apenas tokens para o operador
         self.tabelaOperacoes = TOKEN.tabelaOperacoes()
+
+    def finaliza(self):
+        self.alvo.close()
 
     def entra_escopo(self):
         """Entra em um novo escopo."""
@@ -26,8 +30,6 @@ class Semantico:
         if nome in escopo_atual:
             raise Exception(f'Erro semântico: Redeclaração de "{nome}" no mesmo escopo.')
         escopo_atual[nome] = tipo  # Registra o tipo da variável ou função
-
-
 
     def verifica_declaracao(self, nome):
         """Verifica se um nome foi declarado em algum escopo válido."""
@@ -52,17 +54,22 @@ class Semantico:
             print(f"Erro inesperado: {e}")
             exit(1)
             
-    def verificaOperacao(self, e1, op, e2=None):
-        if e2 is None:
-            # Operação unária
-            entrada = frozenset({op, e1[0]})  # Use apenas o primeiro elemento
-        else:
-            # Operação binária
-            entrada = frozenset({e1[0], op, e2[0]})  # Use apenas os primeiros elementos de e1 e e2
-
+    def verifica_operacao(self, operacao: list):
+        entrada = frozenset(operacao)
         if entrada in self.tabelaOperacoes:
             teste = self.tabelaOperacoes[entrada]
             return teste
         else:
-            msg = f"Operação inválida: {e1} {op} {e2}" if e2 else f"Operação inválida: {op} {e1}"
+            msg = f"Operação inválida: {TOKEN.msg(operacao[0][0])} {TOKEN.msg(operacao[1])} {TOKEN.msg(operacao[2][0])}" if len(operacao) == 3 else f"Operação inválida: {TOKEN.msg(operacao[0])} {TOKEN.msg(operacao[1][0])}"
             raise Exception(msg)
+        
+    def erro_semantico(self, tokenAtual, msg):
+        (token, lexema, linha, coluna) = tokenAtual
+        print(f'Erro na linha {linha}, coluna {coluna}:')
+        print(f'{msg}')
+        raise Exception
+    
+    def gera(self, nivel, codigo):
+        identacao = ' ' * 4 * nivel
+        linha = identacao + codigo
+        self.alvo.write(linha)

@@ -1,18 +1,11 @@
 from lexico import TOKEN, Lexico
 from semantico import Semantico
 
-# Correção do tipo da variável
-# Verificar os tipos
-
-# TODO: implementar tabela de comparação de tipos no semantico (tipo1/tipo2)
-# TODO: restoMult continuar inserindo as operações
-# while deve ter a expressão válida 
-
 class Sintatico:
     
-    def __init__(self, lexico: Lexico):
+    def __init__(self, lexico: Lexico, nomeAlvo):
         self.lexico = lexico
-        self.semantico = Semantico()
+        self.semantico = Semantico(nomeAlvo)
 
     def traduz(self):
         self.tokenLido = self.lexico.getToken()
@@ -196,7 +189,13 @@ class Sintatico:
     def _while_(self):
         self.consome(TOKEN.WHILE)
         self.consome(TOKEN.ABRE_PARENTESES)
-        self.exp()
+        colunaErro = self.tokenLido[3]
+        operacao = list()
+        self.exp(operacao)
+        resultado = self.semantico.verifica_operacao(operacao)
+        if resultado[0] != TOKEN.BOOLEAN:
+            raise Exception(f"Expressão inválida: linha {self.tokenLido[2]}, coluna {colunaErro}.")
+
         self.consome(TOKEN.FECHA_PARENTESES)
         self.com()
 
@@ -399,77 +398,83 @@ class Sintatico:
         self.consome(TOKEN.FECHA_CHAVES)
         
     # <exp> -> <disj>
-    def exp(self):
-        return self.disj() # FIXME: Verificar se precisa
+    def exp(self, operacao: list = list()):
+        return self.disj(operacao)
             
     # <disj> -> <conj> <restoDisj>
-    def disj(self):
-        aux = self.conj() # FIXME: Verificar se precisa 
-        self.restoDisj()
+    def disj(self, operacao: list):
+        aux = self.conj(operacao) 
+        self.restoDisj(operacao)
         return aux
 
     # <restoDisj> -> LAMBDA | or <conj> <restoDisj>
-    def restoDisj(self):
+    def restoDisj(self, operacao: list):
         if self.tokenLido[0] == TOKEN.OR:
             self.consome(TOKEN.OR)
-            self.conj()
-            self.restoDisj()
+            operacao.append(TOKEN.OR)
+            self.conj(operacao)
+            self.restoDisj(operacao)
         else:
             pass
 
     # <conj> -> <nao> <restoConj>
-    def conj(self):
-        aux = self.nao()
-        self.restoConj()
+    def conj(self, operacao: list):
+        aux = self.nao(operacao)
+        self.restoConj(operacao)
         return aux
 
     # <restoConj> -> LAMBDA | and <nao> <restoConj>
-    def restoConj(self):
+    def restoConj(self, operacao: list):
         if self.tokenLido[0] == TOKEN.AND:
             self.consome(TOKEN.AND)
-            self.nao()
-            self.restoConj()
+            operacao.append(TOKEN.AND)
+            self.nao(operacao)
+            self.restoConj(operacao)
         else:
             pass
 
     # <nao> -> not <nao> | <rel>
-    def nao(self):
+    def nao(self, operacao: list):
         if self.tokenLido[0] == TOKEN.NOT:
             self.consome(TOKEN.NOT)
-            self.nao()
+            operacao.append(TOKEN.NOT)
+            self.nao(operacao)
         else:
-            return self.rel()
+            return self.rel(operacao)
 
     # <rel> -> <soma> <restoRel>
-    def rel(self):
-        aux = self.soma()
-        self.restoRel()
+    def rel(self, operacao: list):
+        aux = self.soma(operacao)
+        self.restoRel(operacao)
         return aux
 
     # <restoRel> -> LAMBDA | oprel <soma>
-    def restoRel(self):
+    def restoRel(self, operacao: list):
         if self.tokenLido[0] in TOKEN.oprel():
+            operacao.append(self.tokenLido[0])
             self.consome(self.tokenLido[0])
-            self.soma()
+            self.soma(operacao)
         else:
             pass
 
     # <soma> -> <mult> <restoSoma>
-    def soma(self):
-        aux = self.mult()
-        self.restoSoma()
-        return aux
+    def soma(self, operacao: list):
+        tipo = self.mult(operacao)
+        self.restoSoma(operacao)
+        return tipo
 
     # <restoSoma> -> LAMBDA | + <mult> <restoSoma> | - <mult> <restoSoma>
-    def restoSoma(self):
+    def restoSoma(self, operacao: list):
         if self.tokenLido[0] == TOKEN.SOMA:
             self.consome(TOKEN.SOMA)
-            self.mult()
-            self.restoSoma()
+            operacao.append(TOKEN.SOMA)
+            self.mult(operacao)
+            self.restoSoma(operacao)
         elif self.tokenLido[0] == TOKEN.SUBTRACAO:
             self.consome(TOKEN.SUBTRACAO)
-            self.mult()
-            self.restoSoma()
+            operacao.append(TOKEN.SUBTRACAO)
+            self.mult(operacao)
+            self.restoSoma(operacao)
         else:
             pass
 
@@ -477,25 +482,27 @@ class Sintatico:
     def mult(self, operacao: list):
         self.uno(operacao)
         self.restoMult(operacao)
-        return operacao
+        return operacao # FIXME: Remover
 
     # <restoMult> -> LAMBDA | / <uno> <restoMult> | * <uno> <restoMult> | % <uno> 
     def restoMult(self, operacao: list):
         if self.tokenLido[0] == TOKEN.DIVISAO:
             self.consome(TOKEN.DIVISAO)
-            tipo2 = self.uno()
-            operacao.append(tipo2)
+            operacao.append(TOKEN.DIVISAO)
+            self.uno(operacao)
             self.restoMult(operacao)
         elif self.tokenLido[0] == TOKEN.MULTIPLICACAO:
             self.consome(TOKEN.MULTIPLICACAO)
-            self.uno()
-            self.restoMult()
+            operacao.append(TOKEN.MULTIPLICACAO)
+            self.uno(operacao)
+            self.restoMult(operacao)
         elif self.tokenLido[0] == TOKEN.MOD:
             self.consome(TOKEN.MOD)
+            operacao.append(TOKEN.MOD)
             self.uno()
-            self.restoMult()
+            self.restoMult(operacao)
         else:
-            return tipo1
+            pass
 
     # <uno> -> + <uno> | - <uno> | <folha>
     def uno(self, operacao: list):
@@ -530,13 +537,18 @@ class Sintatico:
             tipo = self.exp() # !!!! IMPLEMENTAR RETORNO
             self.consome(TOKEN.FECHA_PARENTESES)
             return tipo
-        else:
+        elif self.tokenLido[0] == TOKEN.IDENT:
             nome = self.tokenLido[1]
             (tipo, _) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
             if tipo == TOKEN.FUNCTION:
                 return self.call()
             else:
                 return self.lista()
+        elif self.tokenLido[0] == TOKEN.TRUE:
+            self.consome(TOKEN.TRUE)
+            return (TOKEN.TRUE, False)
+        else:
+            self.semantico.erro_semantico(self.tokenLido, f"{self.tokenLido[1]}")
 
     # <call> -> ident ( <lista_outs_opc> )
     def call(self):
