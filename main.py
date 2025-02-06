@@ -9,7 +9,7 @@ class Tradutor:
     def inicializa(self):
         self.arq = open(self.nomeArq, "r")
         self.lexico = Lexico(self.arq)
-        self.sintatico = Sintatico(self.lexico, "saida.py")
+        self.sintatico = Sintatico(self.lexico, "./saida.py")
 
     def traduz(self):
         self.sintatico.traduz()

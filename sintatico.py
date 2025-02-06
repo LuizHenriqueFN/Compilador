@@ -42,32 +42,47 @@ class Sintatico:
 
     # <prog> -> <funcao> <restoFuncoes>
     def prog(self):
-        self.funcao()
-        self.restoFuncoes()
+        self.semantico.gera(0, '# Codigo gerado pelo compilador\n')
+        self.semantico.gera(0, 'class Programa:\n')
+        self.semantico.gera(1, 'def __init__(self):\n')
+        self.semantico.gera(2, 'pass\n\n')
+        self.funcao(1)
+        self.restoFuncoes(1)
+
+        self.semantico.gera(0, '\nif __name__ == "__main__":\n')
+        self.semantico.gera(1, 'programa = Programa()\n')
+        self.semantico.gera(1, 'programa.main()\n')
 
     # <restoFuncoes> -> <funcao> <restoFuncoes> | LAMBDA
-    def restoFuncoes(self):
+    def restoFuncoes(self, indentacao):
         if self.tokenLido[0] == TOKEN.FUNCTION:
-            self.funcao()
-            self.restoFuncoes()
+            self.funcao(indentacao)
+            self.restoFuncoes(indentacao)
         else:
             pass
 
     # <funcao> -> function ident ( <params> ) <tipoResultado> <corpo>
-    def funcao(self):
+    def funcao(self, indentacao):
         self.consome(TOKEN.FUNCTION)  # Consome 'function'
-        nome = self.tokenLido[1]  # Captura o identificador (nome da função)
+        nome_funcao = self.tokenLido[1]  # Captura o identificador (nome da função)
         self.consome(TOKEN.IDENT)  # Consome o identificador
         self.consome(TOKEN.ABRE_PARENTESES)  # Consome '('
         args = self.params()  # Chama a produção 'params' para processar os parâmetros
         self.consome(TOKEN.FECHA_PARENTESES)  # Consome ')'
-        args.append(self.tipoResultado())  # Obtém o tipo da função (após '->' ou vazio)
-        self.semantico.declara(nome, (TOKEN.FUNCTION, args))  # Atualiza com o tipo da função
+        args.append(self.tipoResultado()) 
+        
+        if args != [] and len(args) != 1:
+            parametros = ', '.join([arg[0] for arg in args[:-1]])
+            self.semantico.gera(indentacao, f'def {nome_funcao}(self, {parametros}):\n') 
+        else:
+            self.semantico.gera(indentacao, f'def {nome_funcao}(self):\n') 
+         # Obtém o tipo da função (após '->' ou vazio)
+        self.semantico.declara(nome_funcao, (TOKEN.FUNCTION, args))  # Atualiza com o tipo da função
         self.semantico.entra_escopo()  # Entra no escopo local da função
-        for (nome, tipo) in args:
-            if nome != 'retorno':
-                self.semantico.declara(nome, tipo)
-        self.corpo()  # Processa o corpo da função
+        for (nome_funcao, tipo) in args:
+            if nome_funcao != 'retorno':
+                self.semantico.declara(nome_funcao, tipo)
+        self.corpo(indentacao+1)  # Processa o corpo da função
         self.semantico.sai_escopo()  # Sai do escopo local
 
     # <tipoResultado> -> LAMBDA | -> <tipo>
@@ -106,27 +121,42 @@ class Sintatico:
             pass
 
     # <corpo> -> begin <declaracoes> <calculo> end
-    def corpo(self):
+    def corpo(self, indentacao):
         self.consome(TOKEN.BEGIN)
-        self.declaracoes()
-        self.calculo()
+        self.declaracoes(indentacao)
+        self.calculo(indentacao)
         self.consome(TOKEN.END)
+        self.semantico.gera(0, '\n')
 
     # <declaracoes> -> <declara> <declaracoes> | LAMBDA
-    def declaracoes(self):
+    def declaracoes(self, indentacao = 0):
         if self.tokenLido[0] in [TOKEN.STRING, TOKEN.INT, TOKEN.FLOAT]:
-            self.declara()
-            self.declaracoes()
+            self.declara(indentacao)
+            self.declaracoes(indentacao)
         else:
             pass
 
     # <declara> -> <tipo> <idents> ;
-    def declara(self):
-        tipo = self.tipo()  # Isso retorna o tipo da variável
+    def declara(self, indentacao = 0):
+        tipo = self.tipo()
         variaveis = self.idents(list())
         for var in variaveis:
             self.semantico.declara(var, tipo)
+            if tipo[1] == True:
+                self.semantico.gera(indentacao, f'{var} = list()\n')
+            elif tipo[0] == TOKEN.INT:
+                self.semantico.gera(indentacao, f'{var} = None\n')
+            elif tipo[0] == TOKEN.FLOAT:
+                self.semantico.gera(indentacao, f'{var} = 0.0\n')
+            elif tipo[0] == TOKEN.STRING:
+                self.semantico.gera(indentacao, f'{var} = \'\'\n')
+            elif tipo[0] == TOKEN.BOOLEAN:
+                self.semantico.gera(indentacao, f'{var} = False\n')
+            else:
+                pass
+                
         self.consome(TOKEN.PONTO_VIRGULA)
+        
 
 
     # <idents> -> ident <restoIdents>
@@ -172,46 +202,51 @@ class Sintatico:
 
 
     # <retorna> -> return <expOpc> ;
-    def retorna(self):
+    def retorna(self, indentacao = 0):
         self.consome(TOKEN.RETURN)
-        self.expOpc()
+        texto = self.expOpc()
+        self.semantico.gera(indentacao, f'return {texto}\n')
         self.consome(TOKEN.PONTO_VIRGULA)
 
     # <expOpc> -> LAMBDA | <exp>
     def expOpc(self):
         exp = [TOKEN.NOT, TOKEN.SOMA, TOKEN.SUBTRACAO, TOKEN.INTVAL, TOKEN.FLOATVAL, TOKEN.STRVAL, TOKEN.IDENT, TOKEN.ABRE_PARENTESES]
         if self.tokenLido[0] in exp:
-            self.exp()
+            (_, lexema) = self.exp()
+            return lexema
         else:
-            pass
+            return ''
 
     # <while> -> while ( <exp> ) <com>
-    def _while_(self):
+    def _while_(self, indentacao = 0):
         self.consome(TOKEN.WHILE)
         self.consome(TOKEN.ABRE_PARENTESES)
         colunaErro = self.tokenLido[3]
         operacao = list()
-        self.exp(operacao)
+        (_, condicao) = self.exp(operacao)
         resultado = self.semantico.verifica_operacao(operacao)
         if resultado[0] != TOKEN.BOOLEAN:
             raise Exception(f"Expressão inválida: linha {self.tokenLido[2]}, coluna {colunaErro}.")
 
         self.consome(TOKEN.FECHA_PARENTESES)
-        self.com()
+        self.semantico.gera(indentacao, f'while {condicao}:\n')
+        self.com(indentacao+1)
 
     # <for> -> for ident in <range> do <com>
-    def _for_(self):
+    def _for_(self, indentacao = ''):
         self.consome(TOKEN.FOR)
         nome = self.tokenLido[1]
         self.consome(TOKEN.IDENT)
         tipo = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
         self.consome(TOKEN.IN)
+        texto = f'for {nome} in '
         colunaTipo = self.tokenLido[3]
-        tipoRange = self.range()
+        (tipoRange, lexema) = self.range()
         if tipo[0] != tipoRange[0] or not tipoRange[1]:
             raise Exception(f'Parâmetros inválidos. "FOR", era esperado "{TOKEN.msg(tipoRange[0])}" mas veio "{TOKEN.msg(tipo[0])}". Linha: {self.tokenLido[2]}, coluna: {colunaTipo}')
         self.consome(TOKEN.DO)
-        self.com()
+        self.semantico.gera(indentacao, texto + lexema + ':\n')
+        self.com(indentacao+1)
 
     # <range> -> <lista> | range ( <exp> , <exp> <opcRange> )
     def range(self):
@@ -220,13 +255,18 @@ class Sintatico:
         else:
             self.consome(TOKEN.RANGE)
             self.consome(TOKEN.ABRE_PARENTESES)
+            texto = 'range('
             # TODO: Não pode ser string
-            self.exp()
+            (_, texto1) = self.exp()
             self.consome(TOKEN.VIRGULA)
-            self.exp()
-            self.opcRange()
+            (_, texto2) = self.exp()
+            (_, texto3) = self.opcRange()
             self.consome(TOKEN.FECHA_PARENTESES)
-            return (TOKEN.INT, True)
+            if texto3:
+                texto += f'{texto1}, {texto2}, {texto3})'
+            else:
+                texto += f'{texto1}, {texto2})'
+            return ((TOKEN.INT, True), texto)
 
     # <lista> -> ident <opcIndice> | [ <elemLista> ]
     def lista(self):
@@ -235,24 +275,24 @@ class Sintatico:
             self.consome(TOKEN.IDENT)
             self.semantico.verifica_declaracao(nome)
             tipo = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
-            self.opcIndice()
-            return tipo
+            indice = self.opcIndice()
+            return (tipo, nome + indice)
         else:
             self.consome(TOKEN.ABRE_COLCHETES)
-            tipoPrimeiroElem = self.elemLista()
+            (tipoPrimeiroElem, lexema) = self.elemLista()
             self.consome(TOKEN.FECHA_COLCHETES)
-            return tipoPrimeiroElem
+            return (tipoPrimeiroElem, f'[{lexema}]')
 
 
     # <elemLista> -> LAMBDA | <elem> <restoElemLista>
     def elemLista(self):
         elem = [TOKEN.INTVAL, TOKEN.FLOATVAL, TOKEN.STRVAL, TOKEN.IDENT]
         if self.tokenLido[0] in elem:
-            tipoPrimeiroElem = self.elem()
+            (tipoPrimeiroElem, lexema) = self.elem()
             self.restoElemLista()
-            return tipoPrimeiroElem
+            return (tipoPrimeiroElem, lexema)
         else:
-            pass
+            return (None, '')
 
     # <restoElemLista> -> LAMBDA | , <elem> <restoElemLista>
     def restoElemLista(self):
@@ -265,84 +305,91 @@ class Sintatico:
 
     # <elem> -> intVal | floatVal | strVal | ident
     def elem(self):
+        lexema = self.tokenLido[1]
         if self.tokenLido[0] == TOKEN.INTVAL:
             self.consome(TOKEN.INTVAL)
-            return (TOKEN.INTVAL, False)
+            return ((TOKEN.INTVAL, False), lexema)
         elif self.tokenLido[0] == TOKEN.FLOATVAL:
             self.consome(TOKEN.FLOATVAL)
-            return (TOKEN.FLOATVAL, False)
+            return ((TOKEN.FLOATVAL, False), lexema)
         elif self.tokenLido[0] == TOKEN.STRVAL:
             self.consome(TOKEN.STRVAL)
-            return (TOKEN.STRVAL, False)
+            return ((TOKEN.STRVAL, False), lexema)
         else:
             nome = self.tokenLido[1]
             self.consome(TOKEN.IDENT)
             (tipoPrimeiroElem, _) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
-            return tipoPrimeiroElem
+            return (tipoPrimeiroElem, nome)
 
     # <opcRange> -> , <exp> | LAMBDA
     def opcRange(self):
         if self.tokenLido[0] == TOKEN.VIRGULA:
             self.consome(TOKEN.VIRGULA)
-            self.exp()
+            return self.exp()
         else:
-            pass
+            return (None, '')
     
     # <calculo> -> LAMBDA | <com><calculo>
-    def calculo(self):
+    def calculo(self, indentacao = 0):
         com = [TOKEN.IDENT, TOKEN.IF, TOKEN.READ, TOKEN.WRITE, TOKEN.ABRE_CHAVES, TOKEN.FOR, TOKEN.WHILE, TOKEN.RETURN]
         entrou = False
         while self.tokenLido[0] in com:
-            self.com()
+            self.com(indentacao)
             entrou = True
         
         if not entrou:
             pass 
 
     # <com> -> <atrib>|<if>|<leitura>|<escrita>|<bloco>|<for>|<while>|<retorna>|<call>
-    def com(self):
+    def com(self, indentacao = 0): #FIXME: Remover 0 depois de validar todos
         if self.tokenLido[0] == TOKEN.IDENT:
             nome = self.tokenLido[1]
             (tipo, _) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
             if tipo == TOKEN.FUNCTION:
-                self.call()
+                (_, texto) = self.call()
                 self.consome(TOKEN.PONTO_VIRGULA)
+                self.semantico.gera(indentacao, texto + '\n')
             else:
-                self.atrib()
+                self.atrib(indentacao)
         elif self.tokenLido[0] == TOKEN.IF:
-            self._if_()
+            self._if_(indentacao)
         elif self.tokenLido[0] == TOKEN.READ:
-            self.leitura()
+            self.leitura(indentacao)
         elif self.tokenLido[0] == TOKEN.WRITE:
-            self.escrita()
+            self.escrita(indentacao)
         elif self.tokenLido[0] == TOKEN.ABRE_CHAVES:
-            self.bloco()
+            self.bloco(indentacao)
         elif self.tokenLido[0] == TOKEN.FOR:
-            self._for_()
+            self._for_(indentacao)
         elif self.tokenLido[0] == TOKEN.WHILE:
-            self._while_()
+            self._while_(indentacao)
         else:
-            self.retorna()
+            self.retorna(indentacao)
 
     # <atrib> -> ident <opcIndice> = <exp> ;
-    def atrib(self):
+    def atrib(self, indentacao):
         nome = self.tokenLido[1]
         self.consome(TOKEN.IDENT)
         self.semantico.verifica_declaracao(nome)
-        self.opcIndice()
+        textoIndice = nome + self.opcIndice()
+        textoIndice += ' = '
         self.consome(TOKEN.ATRIBUICAO)
-        self.exp()
+        (_, lexema) = self.exp()
+        textoIndice += lexema + '\n'
         self.consome(TOKEN.PONTO_VIRGULA)
+        self.semantico.gera(indentacao, textoIndice)
 
 
     # <if> ->  if ( <exp> ) then <com> <else_opc>
-    def _if_(self):
+    def _if_(self, indentacao = 0):
         self.consome(TOKEN.IF)
         self.consome(TOKEN.ABRE_PARENTESES)
-        self.exp()
+        (_, lexema) = self.exp()
         self.consome(TOKEN.FECHA_PARENTESES)
         self.consome(TOKEN.THEN)
-        self.com()
+        texto = f'if ({lexema}):\n'
+        self.semantico.gera(indentacao, texto)
+        self.com(indentacao+1)
         self.else_opc()
 
     # <else_opc> -> LAMBDA | else <com> 
@@ -354,47 +401,56 @@ class Sintatico:
             pass
 
     # <leitura> -> read ( strVal , ident ) ;
-    def leitura(self):
+    def leitura(self, indentacao = 0):
         self.consome(TOKEN.READ)
         self.consome(TOKEN.ABRE_PARENTESES)
+        input = self.tokenLido[1]
         self.consome(TOKEN.STRVAL)
         self.consome(TOKEN.VIRGULA)
+        var = self.tokenLido[1]
         self.consome(TOKEN.IDENT)
         self.consome(TOKEN.FECHA_PARENTESES)
         self.consome(TOKEN.PONTO_VIRGULA)
+        self.semantico.gera(indentacao, f'{var} = input({input})\n')
 
     # <escrita> -> write ( <lista_outs> ) ;
-    def escrita(self):
+    def escrita(self, indentacao = 0):
         self.consome(TOKEN.WRITE)
         self.consome(TOKEN.ABRE_PARENTESES)
-        self.lista_outs()
+        (_, lexemas) = self.lista_outs()
         self.consome(TOKEN.FECHA_PARENTESES)
         self.consome(TOKEN.PONTO_VIRGULA)
+        texto = f'print({lexemas})\n'
+        self.semantico.gera(indentacao, texto)
 
     # <lista_outs> -> <out> <restoLista_outs>
     def lista_outs(self):
         parametros = list()
-        parametros.append(self.out())
-        self.restoLista_outs(parametros)
-        return parametros
+        (parametro, lexemas) = self.out()
+        parametros.append(parametro)
+        lexemas += self.restoLista_outs(parametros)
+        return (parametros, lexemas)
 
     # <restoLista_outs> -> LAMBDA | , <out> <restoLista_outs>
     def restoLista_outs(self, parametros: list):
         if self.tokenLido[0] == TOKEN.VIRGULA:
+            lexemas = ', '
             self.consome(TOKEN.VIRGULA)
-            parametros.append(self.out())
-            self.restoLista_outs(parametros)
+            (parametro, lexema) = self.out()
+            parametros.append(parametro)
+            lexemas += lexema
+            return lexemas + self.restoLista_outs(parametros)
         else:
-            pass
+            return ''
 
     # <out> -> <folha>
     def out(self):
         return self.folha()
 
     # <bloco> -> { <calculo> }
-    def bloco(self):
+    def bloco(self, indentacao = 0):
         self.consome(TOKEN.ABRE_CHAVES)
-        self.calculo()
+        self.calculo(indentacao)
         self.consome(TOKEN.FECHA_CHAVES)
         
     # <exp> -> <disj>
@@ -403,133 +459,146 @@ class Sintatico:
             
     # <disj> -> <conj> <restoDisj>
     def disj(self, operacao: list):
-        aux = self.conj(operacao) 
-        self.restoDisj(operacao)
-        return aux
+        (tipo, lexema) = self.conj(operacao) 
+        lexema += self.restoDisj(operacao)
+        return (tipo, lexema)
 
     # <restoDisj> -> LAMBDA | or <conj> <restoDisj>
     def restoDisj(self, operacao: list):
         if self.tokenLido[0] == TOKEN.OR:
             self.consome(TOKEN.OR)
             operacao.append(TOKEN.OR)
-            self.conj(operacao)
-            self.restoDisj(operacao)
+            (_, lexema) = self.conj(operacao)
+            lexema = 'or ' + lexema
+            return lexema + self.restoDisj(operacao)
         else:
-            pass
+            return ''
 
     # <conj> -> <nao> <restoConj>
     def conj(self, operacao: list):
-        aux = self.nao(operacao)
-        self.restoConj(operacao)
-        return aux
+        (tipo, lexema) = self.nao(operacao)
+        lexema += self.restoConj(operacao)
+        return (tipo, lexema)
 
     # <restoConj> -> LAMBDA | and <nao> <restoConj>
     def restoConj(self, operacao: list):
         if self.tokenLido[0] == TOKEN.AND:
             self.consome(TOKEN.AND)
             operacao.append(TOKEN.AND)
-            self.nao(operacao)
-            self.restoConj(operacao)
+            (_, lexema) = self.nao(operacao)
+            lexema = 'and ' + lexema
+            return lexema + self.restoConj(operacao)
         else:
-            pass
+            return ''
 
     # <nao> -> not <nao> | <rel>
     def nao(self, operacao: list):
         if self.tokenLido[0] == TOKEN.NOT:
             self.consome(TOKEN.NOT)
             operacao.append(TOKEN.NOT)
-            self.nao(operacao)
+            (tipo, lexema) = self.nao(operacao)
+            return (tipo, 'not ' + lexema)
         else:
             return self.rel(operacao)
 
     # <rel> -> <soma> <restoRel>
     def rel(self, operacao: list):
-        aux = self.soma(operacao)
-        self.restoRel(operacao)
-        return aux
+        (tipo, lexema) = self.soma(operacao)
+        lexema += self.restoRel(operacao)
+        return (tipo, lexema)
 
     # <restoRel> -> LAMBDA | oprel <soma>
     def restoRel(self, operacao: list):
         if self.tokenLido[0] in TOKEN.oprel():
             operacao.append(self.tokenLido[0])
+            oprel = f' {self.tokenLido[1]} '
             self.consome(self.tokenLido[0])
-            self.soma(operacao)
+            (_, lexema) = self.soma(operacao)
+            return oprel + lexema
         else:
-            pass
+            return ''
 
     # <soma> -> <mult> <restoSoma>
     def soma(self, operacao: list):
-        tipo = self.mult(operacao)
-        self.restoSoma(operacao)
-        return tipo
+        (tipo, lexema) = self.mult(operacao)
+        lexema += self.restoSoma(operacao)
+        return (tipo, lexema)
 
     # <restoSoma> -> LAMBDA | + <mult> <restoSoma> | - <mult> <restoSoma>
     def restoSoma(self, operacao: list):
         if self.tokenLido[0] == TOKEN.SOMA:
             self.consome(TOKEN.SOMA)
             operacao.append(TOKEN.SOMA)
-            self.mult(operacao)
-            self.restoSoma(operacao)
+            (_, lexema) = self.mult(operacao)
+            texto = ' + ' + lexema
+            return texto + self.restoSoma(operacao)
         elif self.tokenLido[0] == TOKEN.SUBTRACAO:
             self.consome(TOKEN.SUBTRACAO)
             operacao.append(TOKEN.SUBTRACAO)
-            self.mult(operacao)
-            self.restoSoma(operacao)
+            (_, lexema) = self.mult(operacao)
+            texto = ' - ' + lexema
+            return texto + self.restoSoma(operacao)
         else:
-            pass
+            return ''
 
     # <mult> -> <uno> <restoMult>
     def mult(self, operacao: list):
-        self.uno(operacao)
-        self.restoMult(operacao)
-        return operacao # FIXME: Remover
+        (tipo, lexema) = self.uno(operacao)
+        lexema += self.restoMult(operacao)
+        return (tipo, lexema)
 
     # <restoMult> -> LAMBDA | / <uno> <restoMult> | * <uno> <restoMult> | % <uno> 
     def restoMult(self, operacao: list):
         if self.tokenLido[0] == TOKEN.DIVISAO:
             self.consome(TOKEN.DIVISAO)
             operacao.append(TOKEN.DIVISAO)
-            self.uno(operacao)
-            self.restoMult(operacao)
+            (_, lexema) = self.uno(operacao)
+            texto = '/' + lexema
+            return texto + self.restoMult(operacao)
         elif self.tokenLido[0] == TOKEN.MULTIPLICACAO:
             self.consome(TOKEN.MULTIPLICACAO)
             operacao.append(TOKEN.MULTIPLICACAO)
-            self.uno(operacao)
-            self.restoMult(operacao)
+            (_, lexema) = self.uno(operacao)
+            texto = '*' + lexema
+            return texto + self.restoMult(operacao)
         elif self.tokenLido[0] == TOKEN.MOD:
             self.consome(TOKEN.MOD)
             operacao.append(TOKEN.MOD)
-            self.uno()
-            self.restoMult(operacao)
+            (_, lexema) = self.uno(operacao)
+            texto = '%' + lexema
+            return texto + self.restoMult(operacao)
         else:
-            pass
+            return ''
 
     # <uno> -> + <uno> | - <uno> | <folha>
     def uno(self, operacao: list):
         if self.tokenLido[0] == TOKEN.SOMA:
             self.consome(TOKEN.SOMA)
             operacao.append((TOKEN.SOMA))
-            return self.uno(operacao)
+            (tipo, lexema) = self.uno(operacao)
+            return (tipo, '+' + lexema)
         elif self.tokenLido[0] == TOKEN.SUBTRACAO:
             self.consome(TOKEN.SUBTRACAO)
             operacao.append((TOKEN.SUBTRACAO))
-            return self.uno(operacao)
+            (tipo, lexema) = self.uno(operacao)
+            return (tipo, '-' + lexema)
         else:
-            tipo = self.folha()
+            (tipo, lexema) = self.folha()
             operacao.append(tipo)
-            return tipo
+            return (tipo, lexema)
             
     # <folha> -> intVal | floatVal | strVal | <call> | <lista> | ( <exp> ) 
     def folha(self):
+        lexema = self.tokenLido[1]
         if self.tokenLido[0] == TOKEN.INTVAL:
             self.consome(TOKEN.INTVAL)
-            return (TOKEN.INT, False)
+            return ((TOKEN.INT, False), lexema)
         elif self.tokenLido[0] == TOKEN.FLOATVAL:
             self.consome(TOKEN.FLOATVAL)
-            return (TOKEN.FLOAT, False)
+            return ((TOKEN.FLOAT, False), lexema)
         elif self.tokenLido[0] == TOKEN.STRVAL:
             self.consome(TOKEN.STRVAL)
-            return (TOKEN.STRING, False)
+            return ((TOKEN.STRING, False), lexema)
         elif self.tokenLido[0] == TOKEN.ABRE_COLCHETES:
             return self.lista()
         elif self.tokenLido[0] == TOKEN.ABRE_PARENTESES:
@@ -546,18 +615,29 @@ class Sintatico:
                 return self.lista()
         elif self.tokenLido[0] == TOKEN.TRUE:
             self.consome(TOKEN.TRUE)
-            return (TOKEN.TRUE, False)
+            return ((TOKEN.TRUE, False), lexema)
         else:
             self.semantico.erro_semantico(self.tokenLido, f"{self.tokenLido[1]}")
 
     # <call> -> ident ( <lista_outs_opc> )
     def call(self):
         nome = self.tokenLido[1]
+        if nome == 'len':
+            nomeFuncaoPython = 'len'
+        elif nome == 'trunc':
+            nomeFuncaoPython = 'math.trunc'
+        elif nome == 'str2num':
+            nomeFuncaoPython = 'int'
+        elif nome == 'num2str':
+            nomeFuncaoPython = 'str'
+        else:
+            nomeFuncaoPython = f'self.{nome}'
+            
         self.consome(TOKEN.IDENT)
         self.consome(TOKEN.ABRE_PARENTESES)
         (_, params) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
         # params = () 
-        paramsPassado = self.lista_outs_opc(params)
+        (paramsPassado, lexemas) = self.lista_outs_opc(params)
 
         if len(params[:-1]) != len(paramsPassado):
             raise Exception(f'Parâmetros inválidos. Função: "{nome}", linha: {self.tokenLido[2]}, coluna: {self.tokenLido[3]}')
@@ -575,10 +655,11 @@ class Sintatico:
 
         self.consome(TOKEN.FECHA_PARENTESES)
         (_, tipo) = params[-1]
-        return tipo
+        texto = f'{nomeFuncaoPython}({lexemas})'
+        return (tipo, texto)
 
     # <lista_outs_opc> -> <lista_outs> | LAMBDA
-    def lista_outs_opc(self, params):
+    def lista_outs_opc(self, params): #FIXME: Verificar argumento params
         folha = [
             TOKEN.INTVAL,
             TOKEN.FLOATVAL,
@@ -589,22 +670,27 @@ class Sintatico:
         if self.tokenLido[0] in folha:
             return self.lista_outs()
         else:
-            (None, (None, None))
+            ((None, (None, None)), '')
 
     # <opcIndice> -> LAMBDA | [ <exp> <restoElem> ]
     def opcIndice(self):
         if self.tokenLido[0] == TOKEN.ABRE_COLCHETES:
+            textoIndice = '['
             self.consome(TOKEN.ABRE_COLCHETES)
-            self.exp()
-            self.restoElem()
+            (_, lexema) = self.exp()
+            textoIndice += lexema
+            self.restoElem(textoIndice)
             self.consome(TOKEN.FECHA_COLCHETES)
+            return textoIndice + ']'
         else:
-            pass
+            return ''
 
     # <restoElem> -> LAMBDA | : <exp>
-    def restoElem(self):
+    def restoElem(self, textoIndice = ''):
         if self.tokenLido[0] == TOKEN.DOIS_PONTOS:
+            textoIndice += ':'
             self.consome(TOKEN.DOIS_PONTOS)
-            self.exp()
+            (_, lexema) = self.exp()
+            textoIndice += lexema
         else:
             pass
