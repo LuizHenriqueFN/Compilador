@@ -26,15 +26,16 @@ end
 
 function main()
 begin
-   string prompt;
+   string prompt, entrada;
    int n, aux;
    int[list] lista;
    write("Forneca inteiros para ordenar (0=termina):");
    n = 1;
    prompt = num2str(n) + "o: ";
    lista = [];
-   read("msg", aux);
    while (aux != 0) {
+      read("msg: ", entrada);
+      aux = str2num(entrada);
       lista = lista + [aux];
    }
    lista = sort(lista);

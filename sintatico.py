@@ -123,26 +123,40 @@ class Sintatico:
     # <corpo> -> begin <declaracoes> <calculo> end
     def corpo(self, indentacao):
         self.consome(TOKEN.BEGIN)
-        self.declaracoes()
+        self.declaracoes(indentacao)
         self.calculo(indentacao)
         self.consome(TOKEN.END)
         self.semantico.gera(0, '\n')
 
     # <declaracoes> -> <declara> <declaracoes> | LAMBDA
-    def declaracoes(self):
+    def declaracoes(self, indentacao = 0):
         if self.tokenLido[0] in [TOKEN.STRING, TOKEN.INT, TOKEN.FLOAT]:
-            self.declara()
-            self.declaracoes()
+            self.declara(indentacao)
+            self.declaracoes(indentacao)
         else:
             pass
 
     # <declara> -> <tipo> <idents> ;
-    def declara(self):
-        tipo = self.tipo()  # Isso retorna o tipo da variável
+    def declara(self, indentacao = 0):
+        tipo = self.tipo()
         variaveis = self.idents(list())
         for var in variaveis:
             self.semantico.declara(var, tipo)
+            if tipo[1] == True:
+                self.semantico.gera(indentacao, f'{var} = list()\n')
+            elif tipo[0] == TOKEN.INT:
+                self.semantico.gera(indentacao, f'{var} = None\n')
+            elif tipo[0] == TOKEN.FLOAT:
+                self.semantico.gera(indentacao, f'{var} = 0.0\n')
+            elif tipo[0] == TOKEN.STRING:
+                self.semantico.gera(indentacao, f'{var} = \'\'\n')
+            elif tipo[0] == TOKEN.BOOLEAN:
+                self.semantico.gera(indentacao, f'{var} = False\n')
+            else:
+                pass
+                
         self.consome(TOKEN.PONTO_VIRGULA)
+        
 
 
     # <idents> -> ident <restoIdents>
@@ -204,18 +218,19 @@ class Sintatico:
             return ''
 
     # <while> -> while ( <exp> ) <com>
-    def _while_(self):
+    def _while_(self, indentacao = 0):
         self.consome(TOKEN.WHILE)
         self.consome(TOKEN.ABRE_PARENTESES)
         colunaErro = self.tokenLido[3]
         operacao = list()
-        self.exp(operacao)
+        (_, condicao) = self.exp(operacao)
         resultado = self.semantico.verifica_operacao(operacao)
         if resultado[0] != TOKEN.BOOLEAN:
             raise Exception(f"Expressão inválida: linha {self.tokenLido[2]}, coluna {colunaErro}.")
 
         self.consome(TOKEN.FECHA_PARENTESES)
-        self.com()
+        self.semantico.gera(indentacao, f'while {condicao}:\n')
+        self.com(indentacao+1)
 
     # <for> -> for ident in <range> do <com>
     def _for_(self, indentacao = ''):
@@ -266,7 +281,7 @@ class Sintatico:
             self.consome(TOKEN.ABRE_COLCHETES)
             (tipoPrimeiroElem, lexema) = self.elemLista()
             self.consome(TOKEN.FECHA_COLCHETES)
-            return (tipoPrimeiroElem, lexema)
+            return (tipoPrimeiroElem, f'[{lexema}]')
 
 
     # <elemLista> -> LAMBDA | <elem> <restoElemLista>
@@ -277,7 +292,7 @@ class Sintatico:
             self.restoElemLista()
             return (tipoPrimeiroElem, lexema)
         else:
-            pass
+            return (None, '')
 
     # <restoElemLista> -> LAMBDA | , <elem> <restoElemLista>
     def restoElemLista(self):
@@ -331,14 +346,15 @@ class Sintatico:
             nome = self.tokenLido[1]
             (tipo, _) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
             if tipo == TOKEN.FUNCTION:
-                self.call()
+                (_, texto) = self.call()
                 self.consome(TOKEN.PONTO_VIRGULA)
+                self.semantico.gera(indentacao, texto + '\n')
             else:
                 self.atrib(indentacao)
         elif self.tokenLido[0] == TOKEN.IF:
             self._if_(indentacao)
         elif self.tokenLido[0] == TOKEN.READ:
-            self.leitura()
+            self.leitura(indentacao)
         elif self.tokenLido[0] == TOKEN.WRITE:
             self.escrita(indentacao)
         elif self.tokenLido[0] == TOKEN.ABRE_CHAVES:
@@ -346,7 +362,7 @@ class Sintatico:
         elif self.tokenLido[0] == TOKEN.FOR:
             self._for_(indentacao)
         elif self.tokenLido[0] == TOKEN.WHILE:
-            self._while_()
+            self._while_(indentacao)
         else:
             self.retorna(indentacao)
 
@@ -385,14 +401,17 @@ class Sintatico:
             pass
 
     # <leitura> -> read ( strVal , ident ) ;
-    def leitura(self):
+    def leitura(self, indentacao = 0):
         self.consome(TOKEN.READ)
         self.consome(TOKEN.ABRE_PARENTESES)
+        input = self.tokenLido[1]
         self.consome(TOKEN.STRVAL)
         self.consome(TOKEN.VIRGULA)
+        var = self.tokenLido[1]
         self.consome(TOKEN.IDENT)
         self.consome(TOKEN.FECHA_PARENTESES)
         self.consome(TOKEN.PONTO_VIRGULA)
+        self.semantico.gera(indentacao, f'{var} = input({input})\n')
 
     # <escrita> -> write ( <lista_outs> ) ;
     def escrita(self, indentacao = 0):
@@ -511,13 +530,13 @@ class Sintatico:
             self.consome(TOKEN.SOMA)
             operacao.append(TOKEN.SOMA)
             (_, lexema) = self.mult(operacao)
-            texto = '+' + lexema
+            texto = ' + ' + lexema
             return texto + self.restoSoma(operacao)
         elif self.tokenLido[0] == TOKEN.SUBTRACAO:
             self.consome(TOKEN.SUBTRACAO)
             operacao.append(TOKEN.SUBTRACAO)
             (_, lexema) = self.mult(operacao)
-            texto = '-' + lexema
+            texto = ' - ' + lexema
             return texto + self.restoSoma(operacao)
         else:
             return ''
@@ -603,6 +622,17 @@ class Sintatico:
     # <call> -> ident ( <lista_outs_opc> )
     def call(self):
         nome = self.tokenLido[1]
+        if nome == 'len':
+            nomeFuncaoPython = 'len'
+        elif nome == 'trunc':
+            nomeFuncaoPython = 'math.trunc'
+        elif nome == 'str2num':
+            nomeFuncaoPython = 'int'
+        elif nome == 'num2str':
+            nomeFuncaoPython = 'str'
+        else:
+            nomeFuncaoPython = f'self.{nome}'
+            
         self.consome(TOKEN.IDENT)
         self.consome(TOKEN.ABRE_PARENTESES)
         (_, params) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
@@ -625,7 +655,7 @@ class Sintatico:
 
         self.consome(TOKEN.FECHA_PARENTESES)
         (_, tipo) = params[-1]
-        texto = f'{nome}({lexemas})'
+        texto = f'{nomeFuncaoPython}({lexemas})'
         return (tipo, texto)
 
     # <lista_outs_opc> -> <lista_outs> | LAMBDA

@@ -37,9 +37,9 @@ begin
    n = 1;
    prompt = num2str(n) + "o: ";
    lista = [];
-   read(msg, aux);
    while (aux != 0) {
-       lista = lista + [aux];
+      read("msg", aux);
+      lista = lista + [aux];
    }
    lista = sort(lista);
    imprime(lista);
