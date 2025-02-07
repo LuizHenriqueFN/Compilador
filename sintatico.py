@@ -256,7 +256,6 @@ class Sintatico:
             self.consome(TOKEN.RANGE)
             self.consome(TOKEN.ABRE_PARENTESES)
             texto = 'range('
-            # TODO: Não pode ser string
             (_, texto1) = self.exp()
             self.consome(TOKEN.VIRGULA)
             (_, texto2) = self.exp()
@@ -341,7 +340,7 @@ class Sintatico:
             pass 
 
     # <com> -> <atrib>|<if>|<leitura>|<escrita>|<bloco>|<for>|<while>|<retorna>|<call>
-    def com(self, indentacao = 0): #FIXME: Remover 0 depois de validar todos
+    def com(self, indentacao = 0):
         if self.tokenLido[0] == TOKEN.IDENT:
             nome = self.tokenLido[1]
             (tipo, _) = self.semantico.obter_tipo_token(nome, self.tokenLido[2], self.tokenLido[3])
@@ -659,7 +658,7 @@ class Sintatico:
         return (tipo, texto)
 
     # <lista_outs_opc> -> <lista_outs> | LAMBDA
-    def lista_outs_opc(self, params): #FIXME: Verificar argumento params
+    def lista_outs_opc(self, params):
         folha = [
             TOKEN.INTVAL,
             TOKEN.FLOATVAL,
